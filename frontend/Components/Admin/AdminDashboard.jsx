@@ -106,7 +106,7 @@ const DashboardOverview = ({ departmentName, facultyCount }) => (
                     <CardTitle>Total Faculty</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-4xl font-bold">{facultyCount}</p>
+                    <p className="text-4xl font-bold text-gray-900 dark:text-white">{facultyCount}</p>
                 </CardContent>
             </Card>
              <Card>
@@ -114,7 +114,7 @@ const DashboardOverview = ({ departmentName, facultyCount }) => (
                     <CardTitle>Total Courses</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-4xl font-bold">{mockCourses.length}</p>
+                    <p className="text-4xl font-bold text-gray-900 dark:text-white">{mockCourses.length}</p>
                 </CardContent>
             </Card>
         </div>

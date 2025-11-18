@@ -46,9 +46,6 @@ const SuperAdminDashboard = () => {
     );
 };
 
-// ... (DashboardOverview, DepartmentManagement, AdminManagement components remain unchanged)
-// ... (I've omitted them here for brevity, but you should keep them in your file)
-// ...
 const DashboardOverview = () => (
     <div>
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Super Admin Dashboard</h1>
@@ -59,7 +56,7 @@ const DashboardOverview = () => (
                     <CardTitle>Total Departments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-4xl font-bold">{mockDepartments.length}</p>
+                    <p className="text-4xl font-bold text-gray-900 dark:text-white">{mockDepartments.length}</p>
                 </CardContent>
             </Card>
             <Card>
@@ -67,7 +64,7 @@ const DashboardOverview = () => (
                     <CardTitle>Total Admins</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-4xl font-bold">{mockUsers.filter(u=>u.role === 'admin').length}</p>
+                    <p className="text-4xl font-bold text-gray-900 dark:text-white">{mockUsers.filter(u=>u.role === 'admin').length}</p>
                 </CardContent>
             </Card>
         </div>
