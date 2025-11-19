@@ -1,19 +1,38 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { courses, pos, psos, articulationMatrix } from '../data/mockData';
 import { Card, CardContent } from '../shared/Card';
 
 const ProgramLevelMatrixPage = () => {
+    const [selectedSemester, setSelectedSemester] = useState('all');
     const allOutcomes = [...pos, ...psos];
 
     // Group courses by semester
-    const coursesBySemester = courses.reduce((acc, course) => {
-        const semester = course.semester;
-        if (!acc[semester]) {
-            acc[semester] = [];
+    const coursesBySemester = useMemo(() => {
+        return courses.reduce((acc, course) => {
+            const semester = course.semester;
+            if (!acc[semester]) {
+                acc[semester] = [];
+            }
+            acc[semester].push(course);
+            return acc;
+        }, {});
+    }, []);
+
+    // Get list of available semesters for the dropdown
+    const semesters = useMemo(() => {
+        return Object.keys(coursesBySemester).sort((a, b) => Number(a) - Number(b));
+    }, [coursesBySemester]);
+
+    // Filter content based on selection
+    const visibleContent = useMemo(() => {
+        let entries = Object.entries(coursesBySemester);
+        
+        if (selectedSemester !== 'all') {
+            entries = entries.filter(([sem]) => sem.toString() === selectedSemester);
         }
-        acc[semester].push(course);
-        return acc;
-    }, {});
+
+        return entries.sort(([semA], [semB]) => Number(semA) - Number(semB));
+    }, [selectedSemester, coursesBySemester]);
 
     const calculateAverages = (course) => {
         const courseMatrix = articulationMatrix[course.id];
@@ -39,17 +58,33 @@ const ProgramLevelMatrixPage = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Program Level CO-PO & PSO Matrix</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-                A consolidated view of the average attainment for each course across all semesters.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Program Level CO-PO & PSO Matrix</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                        A consolidated view of the average attainment for each course across all semesters.
+                    </p>
+                </div>
+                <div className="mt-4 sm:mt-0">
+                    <select
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        className="block w-full sm:w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        aria-label="Filter by semester"
+                    >
+                        <option value="all">All Semesters</option>
+                        {semesters.map(sem => (
+                            <option key={sem} value={sem}>Semester {sem}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             <Card>
                 <CardContent className="pt-6">
                     <div className="space-y-8">
-                        {(Object.entries(coursesBySemester))
-                            .sort(([semA], [semB]) => Number(semA) - Number(semB))
-                            .map(([semester, semesterCourses]) => (
+                        {visibleContent.length > 0 ? (
+                            visibleContent.map(([semester, semesterCourses]) => (
                                 <div key={semester}>
                                     <h2 className="text-xl font-semibold text-center text-gray-700 dark:text-gray-200 mb-4 p-2 bg-gray-100 dark:bg-gray-700 rounded-md">
                                         Semester {semester}
@@ -94,7 +129,12 @@ const ProgramLevelMatrixPage = () => {
                                         </table>
                                     </div>
                                 </div>
-                            ))}
+                            ))
+                        ) : (
+                            <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                                No courses found for the selected filter.
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
