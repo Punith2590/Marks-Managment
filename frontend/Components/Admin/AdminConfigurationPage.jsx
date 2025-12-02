@@ -1,357 +1,300 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../shared/Card';
 import { Icons } from '../shared/icons';
 import { pos as defaultPos, psos as defaultPsos } from '../data/mockData';
 
-const ConfirmationModal = ({ onConfirm, onCancel }) => {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity" aria-modal="true" role="dialog">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Confirm Deletion</h3>
-                <div className="mt-2">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Are you sure you want to delete this outcome? This action may affect existing course articulation matrices and cannot be undone.
-                    </p>
-                </div>
-                <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                        onClick={onCancel}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                    >
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const AdminConfigurationPage = () => {
-    // Configuration State - Filters
-    const [scheme, setScheme] = useState('2022 Scheme');
-    const [semester, setSemester] = useState('All Semesters');
+    // --- State Management ---
+    const [selectedScheme, setSelectedScheme] = useState('2022 Scheme');
     
-    // Configuration Settings
-    const [weightage, setWeightage] = useState({
-        direct: 80,
-        indirect: 20
+    // 1. General Attainment Rules (Per Scheme)
+    const [attainmentRules, setAttainmentRules] = useState({
+        studentPassThreshold: 50, // % marks needed by a student to "attain" a CO (The "Y" count)
+        maxAttainmentLevel: 3,    // Standard NBA scale 1-3
+        levelThresholds: {
+            level3: 70, // >70% students passed = Level 3
+            level2: 60, // >60% students passed = Level 2
+            level1: 50  // >50% students passed = Level 1
+        },
+        // Final PO Formula: (Direct * X) + (Indirect * Y)
+        finalWeightage: {
+            direct: 80,
+            indirect: 20
+        },
+        // Direct Attainment Calculation: (CIE * X) + (SEE * Y)
+        directSplit: {
+            cie: 50,
+            see: 50
+        }
     });
 
-    const [thresholds, setThresholds] = useState({
-        level3: 80, // % of students
-        level2: 70,
-        level1: 60
-    });
+    // 2. Indirect Assessment Tools (Surveys)
+    const [indirectTools, setIndirectTools] = useState([
+        { id: 'exit', name: 'Program Exit Survey', weight: 40 },
+        { id: 'alumni', name: 'Alumni Survey', weight: 30 },
+        { id: 'employer', name: 'Employer Survey', weight: 30 }
+    ]);
 
-    // Outcomes State
+    // 3. Outcomes
     const [pos, setPos] = useState(defaultPos);
     const [psos, setPsos] = useState(defaultPsos);
-    const [deleteConfirmation, setDeleteConfirmation] = useState({
-        isOpen: false,
-        outcomeId: null,
-        type: null,
-    });
 
-    // Handlers
-    const handleWeightageChange = (type, value) => {
-        if (type === 'direct') {
-            setWeightage({ direct: value, indirect: 100 - value });
-        } else {
-            setWeightage({ indirect: value, direct: 100 - value });
-        }
+    // --- Handlers ---
+
+    // Generic rule updater
+    const updateRule = (category, field, value) => {
+        setAttainmentRules(prev => {
+            if (category) {
+                return {
+                    ...prev,
+                    [category]: { ...prev[category], [field]: parseFloat(value) || 0 }
+                };
+            }
+            return { ...prev, [field]: parseFloat(value) || 0 };
+        });
+    };
+
+    const handleDirectWeightChange = (val) => {
+        setAttainmentRules(prev => ({
+            ...prev,
+            finalWeightage: { direct: val, indirect: 100 - val }
+        }));
+    };
+
+    const handleCieWeightChange = (val) => {
+        setAttainmentRules(prev => ({
+            ...prev,
+            directSplit: { cie: val, see: 100 - val }
+        }));
+    };
+
+    // Tool Handlers
+    const handleToolChange = (id, field, value) => {
+        setIndirectTools(tools => tools.map(t => t.id === id ? { ...t, [field]: value } : t));
     };
 
     const handleSave = () => {
-        alert(`Configuration for ${scheme} - ${semester} saved successfully.`);
-    };
-
-    // Outcome Handlers
-    const handleAddPo = () => {
-        const newPoId = `PO${pos.length + 1}`;
-        setPos([...pos, { id: newPoId, description: 'New Program Outcome' }]);
-    };
-    
-    const handleAddPso = () => {
-        const newPsoId = `PSO${psos.length + 1}`;
-        setPsos([...psos, { id: newPsoId, description: 'New Program Specific Outcome' }]);
-    };
-
-    const handleDeletePo = (id) => {
-        setPos(pos.filter(p => p.id !== id));
-    };
-
-    const handleDeletePso = (id) => {
-        setPsos(psos.filter(p => p.id !== id));
-    };
-    
-    const handleDescriptionChange = (id, newDescription, type) => {
-        if (type === 'po') {
-            setPos(pos.map(p => p.id === id ? { ...p, description: newDescription } : p));
-        } else {
-            setPsos(psos.map(p => p.id === id ? { ...p, description: newDescription } : p));
-        }
-    };
-
-    const requestDeleteOutcome = (outcomeId, type) => {
-        setDeleteConfirmation({ isOpen: true, outcomeId, type });
-    };
-
-    const cancelDeleteOutcome = () => {
-        setDeleteConfirmation({ isOpen: false, outcomeId: null, type: null });
-    };
-
-    const confirmDeleteOutcome = () => {
-        const { outcomeId, type } = deleteConfirmation;
-        if (!outcomeId || !type) return;
-
-        if (type === 'po') {
-            handleDeletePo(outcomeId);
-        } else {
-            handleDeletePso(outcomeId);
-        }
-        
-        cancelDeleteOutcome();
+        console.log("Saving Configuration for", selectedScheme, { attainmentRules, indirectTools, pos, psos });
+        alert(`Configuration for ${selectedScheme} saved successfully.`);
     };
 
     return (
-        <div className="space-y-6">
-            {deleteConfirmation.isOpen && <ConfirmationModal onConfirm={confirmDeleteOutcome} onCancel={cancelDeleteOutcome} />}
-            
+        <div className="space-y-6 pb-10">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">System Configuration</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Configure academic settings and outcome definitions.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">System Configuration</h1>
+                    <p className="text-gray-600 dark:text-gray-300 mt-1 font-medium">Define attainment rules, thresholds, and outcomes for the institution.</p>
                 </div>
-                <button 
-                    onClick={handleSave}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium self-start sm:self-auto"
-                >
-                    <Icons.Settings className="h-4 w-4" /> Save Configuration
-                </button>
+                <div className="flex gap-3">
+                    <select 
+                        value={selectedScheme} 
+                        onChange={(e) => setSelectedScheme(e.target.value)}
+                        className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-gray-900 font-medium dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option>2022 Scheme</option>
+                        <option>2021 Scheme</option>
+                        <option>2018 Scheme</option>
+                    </select>
+                    <button 
+                        onClick={handleSave}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-bold"
+                    >
+                        <Icons.Settings className="h-4 w-4" /> Save All
+                    </button>
+                </div>
             </div>
 
-            {/* Context Filters */}
+            {/* --- 1. ATTAINMENT CRITERIA --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* A. Pass Criteria (The "Y" vs "N") */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Student Pass Criteria</CardTitle>
+                        <CardDescription>Minimum score required for a student to "attain" a CO.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white">Target Score (%)</label>
+                                <span className="text-xs text-gray-600 font-medium dark:text-gray-300">Threshold to count as "Y" (Attained)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="number" 
+                                    value={attainmentRules.studentPassThreshold}
+                                    onChange={(e) => updateRule(null, 'studentPassThreshold', e.target.value)}
+                                    className="w-20 rounded-md border-gray-300 text-gray-900 font-bold dark:bg-gray-800 dark:border-gray-600 dark:text-white focus:ring-primary-500 focus:border-primary-500"
+                                />
+                                <span className="text-sm font-bold text-gray-900 dark:text-gray-300">%</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* B. Attainment Level Thresholds (The 1, 2, 3 Scale) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Class Performance Levels</CardTitle>
+                        <CardDescription>Percentage of students required to achieve each level.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {['level3', 'level2', 'level1'].map((level, idx) => (
+                            <div key={level} className="flex items-center justify-between border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                    Level {3 - idx}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-600 font-medium dark:text-gray-400">Above</span>
+                                    <input 
+                                        type="number" 
+                                        value={attainmentRules.levelThresholds[level]}
+                                        onChange={(e) => updateRule('levelThresholds', level, e.target.value)}
+                                        className="w-20 rounded-md border-gray-300 text-gray-900 font-semibold dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm"
+                                    />
+                                    <span className="text-xs text-gray-700 font-bold dark:text-gray-300">% Students</span>
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                {/* C. Direct Attainment Split (CIE vs SEE) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Direct Attainment Formula</CardTitle>
+                        <CardDescription>Weightage of Internal (CIE) vs Semester End (SEE).</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <label className="text-gray-900 font-semibold dark:text-gray-200">CIE (Internals)</label>
+                                <span className="font-bold text-primary-700 dark:text-primary-400">{attainmentRules.directSplit.cie}%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={attainmentRules.directSplit.cie} 
+                                onChange={(e) => handleCieWeightChange(parseInt(e.target.value))}
+                                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-primary-600"
+                            />
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <label className="text-gray-900 font-semibold dark:text-gray-200">SEE (University Exam)</label>
+                                <span className="font-bold text-blue-700 dark:text-blue-400">{attainmentRules.directSplit.see}%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={attainmentRules.directSplit.see} 
+                                disabled
+                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-not-allowed"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* D. Final PO Attainment Split (Direct vs Indirect) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Final PO Attainment Formula</CardTitle>
+                        <CardDescription>Calculation for Total PO Attainment.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <label className="text-gray-900 font-semibold dark:text-gray-200">Direct Attainment (DA)</label>
+                                <span className="font-bold text-primary-700 dark:text-primary-400">{attainmentRules.finalWeightage.direct}%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={attainmentRules.finalWeightage.direct} 
+                                onChange={(e) => handleDirectWeightChange(parseInt(e.target.value))}
+                                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-primary-600"
+                            />
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <label className="text-gray-900 font-semibold dark:text-gray-200">Indirect Attainment (IA)</label>
+                                <span className="font-bold text-purple-700 dark:text-purple-400">{attainmentRules.finalWeightage.indirect}%</span>
+                            </div>
+                            <input 
+                                type="range" min="0" max="100" 
+                                value={attainmentRules.finalWeightage.indirect} 
+                                disabled
+                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-not-allowed"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* --- 2. INDIRECT TOOLS CONFIGURATION --- */}
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-8">Indirect Assessment Tools</h2>
             <Card>
-                <CardContent className="p-4 sm:p-6">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Scheme Selection</label>
-                            <select 
-                                value={scheme} 
-                                onChange={(e) => setScheme(e.target.value)}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                                <option>2022 Scheme</option>
-                                <option>2021 Scheme</option>
-                                <option>2018 Scheme</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester</label>
-                             <select 
-                                value={semester} 
-                                onChange={(e) => setSemester(e.target.value)}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                                <option value="All Semesters">All Semesters</option>
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
-                                    <option key={sem} value={`Semester ${sem}`}>Semester {sem}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
+                <CardContent className="p-0">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-100 dark:bg-gray-800">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase dark:text-gray-200">Tool Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase dark:text-gray-200">Weightage (%)</th>
+                                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase dark:text-gray-200">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {indirectTools.map((tool) => (
+                                <tr key={tool.id}>
+                                    <td className="px-6 py-4">
+                                        <input 
+                                            value={tool.name}
+                                            onChange={(e) => handleToolChange(tool.id, 'name', e.target.value)}
+                                            className="border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-primary-500 text-sm font-bold text-gray-900 dark:text-white w-full dark:bg-gray-700 dark:border-gray-600"
+                                        />
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <input 
+                                            type="number"
+                                            value={tool.weight}
+                                            onChange={(e) => handleToolChange(tool.id, 'weight', e.target.value)}
+                                            className="w-24 rounded border-gray-300 text-sm py-1 font-bold text-gray-900 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        />
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fixed</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Attainment Weightage */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Attainment Weightage Calculation</CardTitle>
-                        <CardDescription>Define how final PO attainment is calculated for {scheme}.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div>
-                            <div className="flex justify-between text-sm mb-1">
-                                <label className="font-medium text-gray-700 dark:text-gray-300">Direct Attainment (Exams/Labs)</label>
-                                <span className="font-bold text-primary-600">{weightage.direct}%</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="100" 
-                                value={weightage.direct} 
-                                onChange={(e) => handleWeightageChange('direct', parseInt(e.target.value))}
-                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                            />
-                        </div>
-                         <div>
-                            <div className="flex justify-between text-sm mb-1">
-                                <label className="font-medium text-gray-700 dark:text-gray-300">Indirect Attainment (Surveys)</label>
-                                <span className="font-bold text-primary-600">{weightage.indirect}%</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="100" 
-                                value={weightage.indirect} 
-                                onChange={(e) => handleWeightageChange('indirect', parseInt(e.target.value))}
-                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Attainment Levels */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Attainment Level Definitions</CardTitle>
-                        <CardDescription>Percentage of students required to achieve specific levels.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Level 3 (High)</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Above</span>
-                                <input 
-                                    type="number" 
-                                    value={thresholds.level3}
-                                    onChange={(e) => setThresholds({...thresholds, level3: parseInt(e.target.value)})}
-                                    className="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                <span className="text-sm font-semibold">%</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Level 2 (Medium)</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Above</span>
-                                <input 
-                                    type="number" 
-                                    value={thresholds.level2}
-                                    onChange={(e) => setThresholds({...thresholds, level2: parseInt(e.target.value)})}
-                                    className="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                <span className="text-sm font-semibold">%</span>
-                            </div>
-                        </div>
-                         <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Level 1 (Low)</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Above</span>
-                                <input 
-                                    type="number" 
-                                    value={thresholds.level1}
-                                    onChange={(e) => setThresholds({...thresholds, level1: parseInt(e.target.value)})}
-                                    className="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                <span className="text-sm font-semibold">%</span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Manage Outcomes Section - Full Width */}
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mt-8">Outcome Definitions ({scheme})</h2>
+            {/* --- 3. OUTCOME DEFINITIONS (POs/PSOs) --- */}
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mt-8">Outcome Definitions</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Program Outcomes (POs)</CardTitle>
-                                <CardDescription>Define the POs for the department.</CardDescription>
-                            </div>
-                            <button onClick={handleAddPo} className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-xs font-medium">
-                               <Icons.PlusCircle className="h-4 w-4" /> Add PO
-                            </button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-20">ID</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-20"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    {pos.map(po => (
-                                        <tr key={po.id}>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white align-top">{po.id}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
-                                                <textarea 
-                                                    value={po.description}
-                                                    onChange={(e) => handleDescriptionChange(po.id, e.target.value, 'po')}
-                                                    rows={2}
-                                                    className="w-full bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-primary-500 resize-none text-sm dark:text-white"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium align-top">
-                                                <button onClick={() => requestDeleteOutcome(po.id, 'po')} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                                                    <Icons.Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    <CardHeader><CardTitle>Program Outcomes (POs)</CardTitle></CardHeader>
+                    <CardContent className="h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700 pt-2">
+                        <ul className="space-y-2">
+                            {pos.map(po => (
+                                <li key={po.id} className="text-sm p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex gap-2">
+                                    <span className="font-extrabold text-gray-900 dark:text-white w-12 shrink-0">{po.id}</span>
+                                    <span className="text-gray-800 font-medium dark:text-gray-200 truncate">{po.description}</span>
+                                </li>
+                            ))}
+                        </ul>
                     </CardContent>
                 </Card>
-
                 <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Program Specific Outcomes (PSOs)</CardTitle>
-                                <CardDescription>Define the PSOs for the department.</CardDescription>
-                            </div>
-                            <button onClick={handleAddPso} className="flex items-center gap-2 px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-xs font-medium">
-                               <Icons.PlusCircle className="h-4 w-4" /> Add PSO
-                            </button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-20">ID</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
-                                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-20"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    {psos.map(pso => (
-                                        <tr key={pso.id}>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white align-top">{pso.id}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-300">
-                                                 <textarea 
-                                                    value={pso.description}
-                                                    onChange={(e) => handleDescriptionChange(pso.id, e.target.value, 'pso')}
-                                                    rows={2}
-                                                    className="w-full bg-transparent border-b border-gray-300 dark:border-gray-600 focus:outline-none focus:border-primary-500 resize-none text-sm dark:text-white"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium align-top">
-                                                <button onClick={() => requestDeleteOutcome(pso.id, 'pso')} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
-                                                    <Icons.Trash2 className="h-4 w-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    <CardHeader><CardTitle>Program Specific Outcomes (PSOs)</CardTitle></CardHeader>
+                    <CardContent className="h-64 overflow-y-auto border-t border-gray-200 dark:border-gray-700 pt-2">
+                        <ul className="space-y-2">
+                            {psos.map(pso => (
+                                <li key={pso.id} className="text-sm p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 flex gap-2">
+                                    <span className="font-extrabold text-gray-900 dark:text-white w-12 shrink-0">{pso.id}</span>
+                                    <span className="text-gray-800 font-medium dark:text-gray-200 truncate">{pso.description}</span>
+                                </li>
+                            ))}
+                        </ul>
                     </CardContent>
                 </Card>
             </div>
